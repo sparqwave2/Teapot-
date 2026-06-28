@@ -350,15 +350,17 @@ document.addEventListener('DOMContentLoaded', () => {
             btnSubmitOrder.disabled = false;
             modalOverlay.classList.add('active');
 
-            // ONLY reset form fields AFTER the fetch data has been processed and dispatched
-            document.getElementById('cust-name').value = '';
-            document.getElementById('cust-phone').value = '';
-            document.getElementById('cust-address').value = '';
-            document.getElementById('shipping-district').value = '';
-            if (!isCod) {
-                document.getElementById('payment-phone').value = '';
-                document.getElementById('payment-trx').value = '';
-            }
+            // Strictly delay the form reset to guarantee fetch transmission completes first
+            setTimeout(() => {
+                document.getElementById('cust-name').value = '';
+                document.getElementById('cust-phone').value = '';
+                document.getElementById('cust-address').value = '';
+                document.getElementById('shipping-district').value = '';
+                if (!isCod) {
+                    document.getElementById('payment-phone').value = '';
+                    document.getElementById('payment-trx').value = '';
+                }
+            }, 1000); // 1 second delay
         })
         .catch(err => {
             console.error('Error:', err);
