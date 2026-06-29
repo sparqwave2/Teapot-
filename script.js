@@ -440,12 +440,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    window.addEventListener('popstate', function (event) {
-        if (lightboxModal && lightboxModal.classList.contains('active')) {
-            closeLightbox();
-        }
-    });
-
     // Mobile Sticky Checkout Scroll
     if (btnStickyCheckout) {
         btnStickyCheckout.addEventListener('click', () => {
@@ -520,29 +514,40 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-});
 
-// 1. Push an initial fake state to trap the first back button press
-function preventAccidentalExit() {
-    window.history.pushState({ exitTrap: true }, "", window.location.href);
-}
+    // 1. Push a state named '#stay' to trap the first back button press
+    function setupHistoryTrap() {
+        if (window.location.hash !== '#stay') {
+            window.history.pushState({ page: 'landing' }, '', '#stay');
+        }
+    }
 
-// Execute on load
-preventAccidentalExit();
+    // 2. Trigger on first user interaction (required by modern browsers)
+    ['touchstart', 'click', 'scroll'].forEach(event => {
+        window.addEventListener(event, function onFirstInteraction() {
+            setupHistoryTrap();
+            ['touchstart', 'click', 'scroll'].forEach(e => window.removeEventListener(e, onFirstInteraction));
+        }, { passive: true });
+    });
 
-// 2. Listen for the popstate (back button) event
-window.addEventListener('popstate', function (event) {
-    // If the user presses back, they consume the fake state.
-    // Instead of letting them leave, we push it right back once to give them a second chance!
-    
-    // Optional: You can trigger a custom alert or toast message here if you want, 
-    // but simply pushing the state back keeps them on the page for the first click.
-    
-    // We can show a simple native confirmation or just trap them once:
-    // To make it a strict 2-click exit, we let the second click naturally fall through by not pushing state again instantly if they double click.
-    
-    console.log("Accidental exit prevented once.");
-    
-    // Show a subtle visual cue or just let them stay on the page. 
-    // To allow exit on the NEXT immediate back press, we don't trap it infinitely.
+    // 3. Listen to 'popstate' event
+    window.addEventListener('popstate', function (event) {
+        const modal = document.getElementById('lightbox-modal');
+        
+        // Case 1: Media Modal is open
+        if (modal && modal.classList.contains('active')) {
+            if (typeof closeLightbox === 'function') {
+                closeLightbox();
+            } else {
+                modal.classList.remove('active');
+            }
+            // Re-trap so they don't exit the page on modal close back-press
+            setupHistoryTrap();
+            return;
+        }
+
+        // Case 2: Direct page exit attempt
+        // By not re-pushing the state instantly on the second consecutive press, it allows a 2-click exit.
+        console.log("Accidental page exit prevented once.");
+    });
 });
