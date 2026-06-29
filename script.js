@@ -399,6 +399,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const lightboxTriggers = document.querySelectorAll('.lightbox-trigger');
 
     function closeLightbox() {
+        if (!lightboxModal.classList.contains('active')) return;
+
         lightboxModal.classList.remove('active');
         setTimeout(() => {
             lightboxImg.style.display = 'none';
@@ -406,6 +408,10 @@ document.addEventListener('DOMContentLoaded', () => {
             lightboxImg.src = '';
             lightboxVideo.src = '';
         }, 300);
+
+        if (window.location.hash === '#view-media') {
+            window.history.back();
+        }
     }
 
     lightboxTriggers.forEach(trigger => {
@@ -422,6 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 lightboxImg.style.display = 'block';
             }
             lightboxModal.classList.add('active');
+            window.history.pushState({ modalOpen: true }, '', '#view-media');
         });
     });
 
@@ -429,6 +436,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     lightboxModal.addEventListener('click', (e) => {
         if (e.target === lightboxModal || e.target.classList.contains('lightbox-content-wrapper')) {
+            closeLightbox();
+        }
+    });
+
+    window.addEventListener('popstate', function (event) {
+        if (lightboxModal && lightboxModal.classList.contains('active')) {
             closeLightbox();
         }
     });
