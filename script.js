@@ -521,3 +521,28 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+// 1. Push an initial fake state to trap the first back button press
+function preventAccidentalExit() {
+    window.history.pushState({ exitTrap: true }, "", window.location.href);
+}
+
+// Execute on load
+preventAccidentalExit();
+
+// 2. Listen for the popstate (back button) event
+window.addEventListener('popstate', function (event) {
+    // If the user presses back, they consume the fake state.
+    // Instead of letting them leave, we push it right back once to give them a second chance!
+    
+    // Optional: You can trigger a custom alert or toast message here if you want, 
+    // but simply pushing the state back keeps them on the page for the first click.
+    
+    // We can show a simple native confirmation or just trap them once:
+    // To make it a strict 2-click exit, we let the second click naturally fall through by not pushing state again instantly if they double click.
+    
+    console.log("Accidental exit prevented once.");
+    
+    // Show a subtle visual cue or just let them stay on the page. 
+    // To allow exit on the NEXT immediate back press, we don't trap it infinitely.
+});
