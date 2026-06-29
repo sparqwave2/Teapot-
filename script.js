@@ -260,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Submit Order Handler
-    btnSubmitOrder.addEventListener('click', () => {
+    btnSubmitOrder.addEventListener('click', (e) => {
         // Basic Validation
         const name = document.getElementById('cust-name').value.trim();
         const phone = document.getElementById('cust-phone').value.trim();
@@ -270,26 +270,31 @@ document.addEventListener('DOMContentLoaded', () => {
         for (const key in cart) totalQty += cart[key].qty;
 
         if (totalQty === 0) {
+            e.preventDefault();
             alert('দয়া করে অন্তত একটি আইটেম নির্বাচন করুন।');
             return;
         }
         if (!name || !phone || !address) {
+            e.preventDefault();
             alert('দয়া করে আপনার নাম, মোবাইল নম্বর এবং সম্পূর্ণ ঠিকানা প্রদান করুন।');
             return;
         }
         if (!isDistrictSelected) {
+            e.preventDefault();
             alert('দয়া করে আপনার ডেলিভারি জেলা নির্বাচন করুন।');
             return;
         }
 
         if (!isCod) {
             if (!selectedAdvanceProvider) {
+                e.preventDefault();
                 alert('দয়া করে পেমেন্ট মাধ্যম (bKash অথবা Nagad) নির্বাচন করুন।');
                 return;
             }
             const payPhone = document.getElementById('payment-phone').value.trim();
             const payTrx = document.getElementById('payment-trx').value.trim();
             if (!payPhone || !payTrx) {
+                e.preventDefault();
                 alert('দয়া করে পেমেন্ট নম্বর এবং ট্রানজেকশন আইডি প্রদান করুন।');
                 return;
             }
@@ -298,15 +303,13 @@ document.addEventListener('DOMContentLoaded', () => {
         // Show loading state on button
         const originalBtnText = btnSubmitOrder.innerText;
         btnSubmitOrder.innerText = 'অর্ডার প্রসেসিং হচ্ছে... অনুগ্রহ করে অপেক্ষা করুন।';
-        btnSubmitOrder.disabled = true;
+        // Note: we do not disable the button here to allow native HTML form submission to proceed
 
-        // Calculate totals and packages for the payload
+        // Calculate totals for the pixel
         let subtotal = 0;
-        let packageDetails = [];
         for (const key in cart) {
             if (cart[key].qty > 0) {
                 subtotal += cart[key].qty * cart[key].price;
-                packageDetails.push(`${cart[key].qty}x ${cart[key].name}`);
             }
         }
         
@@ -316,58 +319,29 @@ document.addEventListener('DOMContentLoaded', () => {
             grandTotal += codCharge;
         }
 
-        const orderData = {
-            Name: name,
-            Phone: phone,
-            Address: address,
-            Package: packageDetails.join(', '),
-            TotalPrice: grandTotal,
-            DeliveryZone: selectedDistrict,
-            PaymentMethod: isCod ? 'Cash on Delivery' : `Advance Payment (${selectedAdvanceProvider})`,
-            SenderNumber: isCod ? 'N/A' : document.getElementById('payment-phone').value.trim(),
-            TransactionID: isCod ? 'N/A' : document.getElementById('payment-trx').value.trim()
-        };
+        // Trigger Facebook Pixel Purchase event
+        if (typeof fbq === 'function') {
+            fbq('track', 'Purchase', { content_name: 'Glass Teapot Order', value: grandTotal, currency: 'BDT' });
+        }
 
-        // Background Data Submission (Google Sheets)
-        fetch('https://script.google.com/macros/s/AKfycbwCb75eG4Ok30afDUccscBmUH0oY1aBsZs5tRtRomKJF6wvfHZog-bNoVkTOhG1_SY0uQ/exec', {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: new URLSearchParams(orderData).toString()
-        })
-        .then(() => {
-            console.log('Data successfully sent to Google Sheets');
-            
-            // Trigger Facebook Pixel Purchase event after successful dispatch
-            if (typeof fbq === 'function') {
-                fbq('track', 'Purchase', { content_name: 'Glass Teapot Order', value: grandTotal, currency: 'BDT' });
+        // Show Success Modal
+        modalOverlay.classList.add('active');
+
+        // Restore button text and reset form after a short delay in case submission happens via background AJAX
+        setTimeout(() => {
+            btnSubmitOrder.innerText = originalBtnText;
+            document.getElementById('cust-name').value = '';
+            document.getElementById('cust-phone').value = '';
+            document.getElementById('cust-address').value = '';
+            document.getElementById('shipping-district').value = '';
+            if (!isCod) {
+                document.getElementById('payment-phone').value = '';
+                document.getElementById('payment-trx').value = '';
             }
+        }, 1500);
 
-            // Restore button state and Show Success Modal
-            btnSubmitOrder.innerText = originalBtnText;
-            btnSubmitOrder.disabled = false;
-            modalOverlay.classList.add('active');
-
-            // Strictly delay the form reset to guarantee fetch transmission completes first
-            setTimeout(() => {
-                document.getElementById('cust-name').value = '';
-                document.getElementById('cust-phone').value = '';
-                document.getElementById('cust-address').value = '';
-                document.getElementById('shipping-district').value = '';
-                if (!isCod) {
-                    document.getElementById('payment-phone').value = '';
-                    document.getElementById('payment-trx').value = '';
-                }
-            }, 1000); // 1 second delay
-        })
-        .catch(err => {
-            console.error('Error:', err);
-            alert('অর্ডার সাবমিট করতে সমস্যা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন বা হোয়াটসঅ্যাপে যোগাযোগ করুন।');
-            btnSubmitOrder.innerText = originalBtnText;
-            btnSubmitOrder.disabled = false;
-        });
+        // We do NOT use e.preventDefault() here if validation passes, 
+        // allowing the default HTML form submission (e.g., Web3Forms) to proceed.
     });
 
     // Close Modal Handler
